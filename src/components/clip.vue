@@ -119,6 +119,10 @@ export default {
         this.onInit(this)
     },
 
+    destroyed() {
+        this.uploader.destroy()
+    },
+
     methods: {
         bindEvents() {
             this.uploader.on('addedfile', this.addedFile.bind(this))

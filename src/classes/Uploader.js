@@ -54,7 +54,8 @@ export default class Uploader {
      * Removes all listeners and dom bindings.
      */
     destroy() {
-        this._uploader.disable()
+        // this._uploader.disable()
+        this._uploader.destroy()
     }
 
     /**
