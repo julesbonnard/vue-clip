@@ -1,6 +1,6 @@
 'use strict'
 
-import File from '../../src/File'
+import File from '../../src/classes/File'
 import { assert } from 'chai'
 
 describe('File', function () {

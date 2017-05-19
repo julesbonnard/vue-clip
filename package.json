@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "dropzone": "^4.3.0",
-    "lodash.clone": "^4.5.0"
+    "lodash-es": "^4.17.4"
   },
   "directories": {
     "test": "test"

@@ -1,18 +1,18 @@
 'use strict'
 
-import Clip from './src/components/Clip/index.js'
+import Clip from './src/components/clip.vue'
 
 const VueClip = {
-  install (Vue) {
-    Vue.component('vue-clip', Clip)
-  }
+    install(Vue) {
+        Vue.component('vue-clip', Clip)
+    }
 }
 
 /**
  * When required globally
  */
 if (typeof (window) !== 'undefined' && typeof (window.Vue) !== 'undefined') {
-  window.Vue.use(VueClip)
+    window.Vue.use(VueClip)
 }
 
 export default VueClip

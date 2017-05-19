@@ -1,6 +1,6 @@
 'use strict'
 
-import Uploader from '../../src/Uploader'
+import Uploader from '../../src/classes/Uploader'
 import Dropzone from 'dropzone'
 import { assert } from 'chai'
 

@@ -2,8 +2,8 @@
 
 import Vue from 'vue'
 import { assert } from 'chai'
-import Clip from '../../src/components/Clip/index'
-import Uploader from '../../src/Uploader'
+import Clip from '../../src/components/clip.vue'
+import Uploader from '../../src/classes/Uploader'
 
 describe('Clip', function () {
   before(function () {
