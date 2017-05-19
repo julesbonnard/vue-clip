@@ -108,15 +108,15 @@ export default {
                     // improperly formatted, revert to Dropzone default value
                     options.acceptedFiles = null
             }
-
-            /**
-             * Instantiating uploader
-             */
-            this.uploader = new Uploader(options)
-            this.bindEvents()
-            this.uploader.mount(this.$el.firstElementChild)
-            this.onInit(this)
         }
+
+        /**
+         * Instantiating uploader
+         */
+        this.uploader = new Uploader(options)
+        this.bindEvents()
+        this.uploader.mount(this.$el.firstElementChild)
+        this.onInit(this)
     },
 
     methods: {
