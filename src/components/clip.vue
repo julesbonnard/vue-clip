@@ -1,7 +1,7 @@
 <template>
-    <div v-bind:class="uploaderClass">
+    <div :class="uploaderClass">
         <slot name="clip-uploader-action"
-              :dragging="dragCounter > 0"></slot>
+              :dragging="isDragging"></slot>
         <slot name="clip-uploader-body"
               :files="files"></slot>
         <div ref="clip-preview-template"
@@ -12,37 +12,56 @@
     </div>
 </template>
 
-<style lang="scss">
-
-</style>
-
 <script>
 import Uploader from '../classes/Uploader'
-import File from '../classes/File'
+import DropzoneFile from '../classes/DropzoneFile'
+import capitalize from 'lodash-es/capitalize'
+import isString from 'lodash-es/isString'
+import isObject from 'lodash-es/isObject'
+import isArray from 'lodash-es/isArray'
 import clone from 'lodash-es/clone'
-import noop from 'lodash-es/noop'
-import SymbolFallback from 'babel-runtime/core-js/symbol'
+import toString from 'lodash-es/toString'
+import uniqueId from 'lodash-es/uniqueId'
 
-const fnProps = [
-    'onAddedFile',
-    'onRemovedFile',
-    'onSending',
-    'onDragEnter',
-    'onDragLeave',
-    'onDrop',
-    'onTotalProgress',
-    'onQueueComplete',
-    'onMaxFiles',
-    'onInit',
-    'onComplete'
-]
-function defineFnPropReducer(memo, prop) {
-    return Object.assign(memo, {
-        [prop]: {
-            type: Function,
-            default: noop
-        }
-    })
+const toEventName = n => n.split('-').join('')
+const toCallbackName = n => 'on' + n.split('-').map((s, i) => capitalize(s)).join('')
+const toEmitName = n => n
+
+const dzEvents = {
+    fileFirst: [
+        'removed-file',
+        'processing',
+        'upload-progress',
+        'sending',
+        'success',
+        'complete',
+        'canceled',
+        'max-files-reached',
+        'max-files-exceeded',
+    ],
+    multipleFiles: [
+        'processing-multiple',
+        'sending-multiple',
+        'success-multiple',
+        'complete-multiple',
+        'canceled-multiple',
+    ],
+    generic: [
+        'drag-start',
+        'drag-end',
+        'drag-over',
+        'total-upload-progress',
+        'reset',
+        'queue-complete',
+    ],
+    special: [
+        'added-file',
+        'thumbnail',
+        'error',
+        'drop',
+        'drag-enter',
+        'drag-leave',
+    ],
 }
 
 export default {
@@ -52,11 +71,14 @@ export default {
         },
         options: {
             type: Object,
-            default() {
-                return {}
-            }
+            default: () => new Object()
         },
-        ...fnProps.reduce(defineFnPropReducer, {})
+    },
+
+    computed: {
+        isDragging() {
+            return this.dragCounter > 0
+        },
     },
 
     data() {
@@ -71,13 +93,8 @@ export default {
         const options = clone(this.options)
         const accept = options.accept || function (file, done) { done() }
 
-        /**
-         * Overriding properties of the options object
-         */
         options.previewTemplate = this.$refs['clip-preview-template'].innerHTML
-        options.accept = ({ blobId }, done) => {
-            accept(this.getFile(blobId), done)
-        }
+        options.accept = (file, done) => accept(this.getFileById(file.id).set(file), done)
 
         if (typeof (options.maxFiles) !== 'undefined' && options.maxFiles instanceof Object === true) {
             const { limit, message } = options.maxFiles
@@ -92,17 +109,12 @@ export default {
         }
 
         if (typeof options.acceptedFiles !== 'undefined' && options.acceptedFiles !== null) {
-            switch (Object.prototype.toString.call(options.acceptedFiles)) {
-                case '[object String]':
+            switch (true) {
+                case isString(options.acceptedFiles):
                     // already formatted for Dropzone
                     break
-                case '[object Array]':
+                case isArray(options.acceptedFiles):
                     options.acceptedFiles = options.acceptedFiles.join(',')
-                    break
-                case '[object Object]':
-                    const { extensions, message } = options.acceptedFiles
-                    options.acceptedFiles = extensions.join(',')
-                    options.dictInvalidFileType = this.cleanupMessage(message)
                     break
                 default:
                     // improperly formatted, revert to Dropzone default value
@@ -114,9 +126,9 @@ export default {
          * Instantiating uploader
          */
         this.uploader = new Uploader(options)
-        this.bindEvents()
+        this.bindEventsToUploader()
         this.uploader.mount(this.$el.firstElementChild)
-        this.onInit(this)
+        this.$emit('init', this)
     },
 
     destroyed() {
@@ -124,112 +136,80 @@ export default {
     },
 
     methods: {
-        bindEvents() {
-            this.uploader.on('addedfile', this.addedFile.bind(this))
-            this.uploader.on('removedfile', this.removedFile.bind(this))
-            this.uploader.on('sending', this.sending.bind(this))
-            this.uploader.on('complete', this.complete.bind(this))
-            this.uploader.on('error', this.error.bind(this))
-            this.uploader.on('uploadprogress', this.uploadProgress.bind(this))
-            this.uploader.on('thumbnail', this.thumbnail.bind(this))
-            this.uploader.on('drop', this.drop.bind(this))
-            this.uploader.on('dragenter', this.dragEnter.bind(this))
-            this.uploader.on('dragleave', this.dragLeave.bind(this))
-            this.uploader.on('totaluploadprogress', this.totalUploadProgress.bind(this))
-            this.uploader.on('maxfilesexceeded', this.maxFilesExceeded.bind(this))
-            this.uploader.on('queuecomplete', this.queueComplete.bind(this))
+        bindEventsToUploader() {
+            Object.keys(dzEvents).forEach(type => {
+                dzEvents[type].forEach(e => {
+                    this.uploader.on(toEventName(e), this[toCallbackName(e)])
+                })
+            })
         },
 
-        getFile(blobId) {
-            let matchedFile = {}
-            this.files.forEach((file) => {
-                if (file._file.blobId === blobId) {
-                    matchedFile = file
+        getFileById(id) {
+            return this.files.find(f => f.id === toString(id))
+        },
+
+        updateFile(file, ...data) {
+            return this.getFileById(file.id).setDeepProps(file, ...data)
+        },
+
+        ...dzEvents.fileFirst.reduce((memo, event) => {
+            return Object.assign(memo, {
+                [toCallbackName(event)](file, ...args) {
+                    this.$emit(toEmitName(event), this.updateFile(file), ...args)
                 }
             })
-            return matchedFile
-        },
+        }, {}),
 
-        addedFile(file) {
-            const fileId = SymbolFallback()
-            file.blobId = fileId
-            this.files.push(new File(file))
-            this.onAddedFile(this.getFile(fileId))
-        },
-
-        removedFile({ blobId }) {
-            const fileInstance = this.getFile(blobId)
-            fileInstance.updateStatus('removed')
-            this.onRemovedFile(fileInstance)
-        },
-
-        sending({ blobId }, xhr, formData) {
-            const fileInstance = this.getFile(blobId)
-            this.onSending(fileInstance, xhr, formData)
-        },
-
-        complete({ blobId, status, xhr = {} }) {
-            const fileInstance = this.getFile(blobId)
-            fileInstance.updateStatus(status)
-            fileInstance.updateXhrResponse({
-                response: xhr.response,
-                responseText: xhr.responseText,
-                statusCode: xhr.status
+        ...dzEvents.multipleFiles.reduce((memo, event) => {
+            return Object.assign(memo, {
+                [toCallbackName(event)](fileList, ...args) {
+                    const files = fileList.map(file => this.updateFile(file))
+                    this.$emit(toEmitName(event), files, ...args)
+                }
             })
-            this.onComplete(fileInstance, status, xhr)
+        }, {}),
+
+        ...dzEvents.generic.reduce((memo, event) => {
+            return Object.assign(memo, {
+                [toCallbackName(event)]() {
+                    this.$emit(toEmitName(event), ...arguments)
+                }
+            })
+        }, {}),
+
+        onAddedFile(file, ...args) {
+            file.id = uniqueId()
+            const f = new DropzoneFile().setDeepProps(file)
+            this.files.push(f)
+            this.$emit('added-file', f, ...args)
         },
 
-        error({ blobId, status }, errorMessage) {
-            const fileInstance = this.getFile(blobId)
-            fileInstance.updateStatus(status)
-            fileInstance.updateErrorMessage(errorMessage)
+        onThumbnail(file, dataUrl) {
+            this.$emit('thumbnail', this.updateFile(file, { dataUrl }), dataUrl)
         },
 
-        uploadProgress({ blobId }, progress, bytesSent) {
-            const fileInstance = this.getFile(blobId)
-            fileInstance.updateProgress(progress)
-            fileInstance.updateBytesSent(bytesSent)
+        onError(file, errorMessage) {
+            this.$emit('error', this.updateFile(file, { errorMessage }), errorMessage)
         },
 
-        thumbnail({ blobId }, dataUrl) {
-            const fileInstance = this.getFile(blobId)
-            fileInstance.updateDataUrl(dataUrl)
-        },
-
-        drop() {
+        onDrop() {
             this.dragCounter = 0
-            this.onDrop()
-            this.onDragLeave()
+            this.$emit('drop', ...arguments)
         },
 
-        dragEnter(event) {
-            event.preventDefault()
-            this.dragCounter++
-            this.onDragEnter()
+        onDragEnter(e) {
+            e.preventDefault();
+            this.dragCounter++;
+            this.$emit('drag-enter', ...arguments)
         },
 
-        dragLeave() {
+        onDragLeave() {
             this.dragCounter--
-            if (this.dragCounter === 0) {
-                this.onDragLeave()
-            }
-        },
-
-        totalUploadProgress() {
-            this.onTotalProgress(...arguments)
-        },
-
-        queueComplete() {
-            this.onQueueComplete()
-        },
-
-        maxFilesExceeded({ blobId }) {
-            const fileInstance = this.getFile(blobId)
-            this.onMaxFiles(fileInstance)
+            this.$emit('drag-leave', ...arguments)
         },
 
         removeFile(file) {
-            this.uploader.removeFile(file._file)
+            this.uploader.removeFile(file)
         },
 
         addFile(file) {
@@ -238,7 +218,7 @@ export default {
 
         removeAllFiles(cancelQueued) {
             this.uploader.removeAllFiles(cancelQueued)
-        }
-    }
+        },
+    },
 }
 </script>
