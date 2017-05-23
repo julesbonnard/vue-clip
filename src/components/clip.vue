@@ -1,7 +1,7 @@
 <template>
     <div :class="uploaderClass">
         <slot name="clip-uploader-action"
-              :dragging="isDragging"></slot>
+              :is-dragging="isDragging"></slot>
         <slot name="clip-uploader-body"
               :files="files"></slot>
         <div ref="clip-preview-template"
@@ -9,6 +9,8 @@
              style="display: none;">
             <div></div>
         </div>
+        <div :id="hiddenInputId"
+             style="display: none;"></div>
     </div>
 </template>
 
@@ -75,40 +77,32 @@ export default {
         },
     },
 
-    computed: {
-        isDragging() {
-            return this.dragCounter > 0
+    watch: {
+        isUploading(isUploading) {
+            const event = isUploading ? 'upload-start' : 'upload-complete'
+            this.$emit(event, this.files, this)
         },
     },
 
     data() {
+        const hiddenInputId = `dz-hidden-input-container-${uniqueId()}`
+
         return {
             files: [],
             dragCounter: 0,
-            uploader: null
+            uploader: null,
+            hiddenInputId,
         }
     },
 
     mounted() {
-        const options = clone(this.options)
+        const options = Object.assign(clone(this.options), { hiddenInputContainer: `#${this.hiddenInputId}` })
         const accept = options.accept || function (file, done) { done() }
 
         options.previewTemplate = this.$refs['clip-preview-template'].innerHTML
-        options.accept = (file, done) => accept(this.getFileById(file.id).set(file), done)
+        options.accept = (file, done) => accept(this.filesById[file.id].set(file), done)
 
-        if (typeof (options.maxFiles) !== 'undefined' && options.maxFiles instanceof Object === true) {
-            const { limit, message } = options.maxFiles
-            options.maxFiles = limit
-            options.dictMaxFilesExceeded = message
-        }
-
-        if (typeof (options.maxFilesize) !== 'undefined' && options.maxFilesize instanceof Object === true) {
-            const { limit, message } = options.maxFilesize
-            options.maxFilesize = limit
-            options.dictFileTooBig = message
-        }
-
-        if (typeof options.acceptedFiles !== 'undefined' && options.acceptedFiles !== null) {
+        if (options.acceptedFiles) {
             switch (true) {
                 case isString(options.acceptedFiles):
                     // already formatted for Dropzone
@@ -122,9 +116,6 @@ export default {
             }
         }
 
-        /**
-         * Instantiating uploader
-         */
         this.uploader = new Uploader(options)
         this.bindEventsToUploader()
         this.uploader.mount(this.$el.firstElementChild)
@@ -133,6 +124,20 @@ export default {
 
     destroyed() {
         this.uploader.destroy()
+    },
+
+    computed: {
+        isDragging() {
+            return this.dragCounter > 0
+        },
+
+        isUploading() {
+            return this.files.filter(f => f.status === 'uploading').length > 0
+        },
+
+        filesById() {
+            return this.files.reduce((memo, f) => Object.assign(memo, { [f.id]: f }), {})
+        },
     },
 
     methods: {
@@ -144,12 +149,8 @@ export default {
             })
         },
 
-        getFileById(id) {
-            return this.files.find(f => f.id === toString(id))
-        },
-
         updateFile(file, ...data) {
-            return this.getFileById(file.id).setDeepProps(file, ...data)
+            return this.filesById[file.id].setDeepProps(file, ...data)
         },
 
         ...dzEvents.fileFirst.reduce((memo, event) => {
@@ -178,7 +179,7 @@ export default {
         }, {}),
 
         onAddedFile(file, ...args) {
-            file.id = uniqueId()
+            file.id = `dz-${uniqueId()}`
             const f = new DropzoneFile().setDeepProps(file)
             this.files.push(f)
             this.$emit('added-file', f, ...args)
@@ -218,6 +219,10 @@ export default {
 
         removeAllFiles(cancelQueued) {
             this.uploader.removeAllFiles(cancelQueued)
+        },
+
+        trigger() {
+            this.uploader.trigger()
         },
     },
 }
