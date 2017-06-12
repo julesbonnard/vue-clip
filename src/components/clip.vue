@@ -190,6 +190,7 @@ export default {
         },
 
         onError(file, errorMessage) {
+            console.error(errorMessage, file)
             this.$emit('error', this.updateFile(file, { errorMessage }), errorMessage)
         },
 
@@ -199,8 +200,8 @@ export default {
         },
 
         onDragEnter(e) {
-            e.preventDefault();
-            this.dragCounter++;
+            e.preventDefault()
+            this.dragCounter++
             this.$emit('drag-enter', ...arguments)
         },
 

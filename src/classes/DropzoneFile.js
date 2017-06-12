@@ -13,7 +13,7 @@ export default class DropzoneFile {
             let newData = {}
 
             for (let prop in obj) {
-                if (typeof obj[prop] !== 'function') {
+                if (typeof obj[prop] !== "function") {
                     newData[prop] = obj[prop]
                 }
             }
@@ -42,9 +42,8 @@ export default class DropzoneFile {
             webkitRelativePath: undefined,
             width: undefined,
             xhr: undefined,
-            dataUrl: '',
-            errorMessage: ''
+            dataUrl: "",
+            errorMessage: ""
         }
     }
-
 }

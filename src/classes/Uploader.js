@@ -1,10 +1,9 @@
-import Dropzone from 'dropzone'
-import noop from 'lodash-es/noop'
+import Dropzone from "dropzone"
+import noop from "lodash-es/noop"
 
 Dropzone.autoDiscover = false
 
 export default class Uploader {
-
     constructor(options = {}) {
         this._options = options
         this._existingInit = this._options.init || noop
@@ -21,7 +20,7 @@ export default class Uploader {
      */
     _bindHooks(self) {
         self._existingInit.bind(this)()
-        self._hooks.forEach((hook) => {
+        self._hooks.forEach(hook => {
             this.on(hook.event, hook.callback)
         })
         self._hooks = []
@@ -34,7 +33,7 @@ export default class Uploader {
      */
     mount(domElem) {
         const self = this
-        this._options.init = function () {
+        this._options.init = function() {
             self._bindHooks.bind(this)(self)
         }
         this._uploader = new Dropzone(domElem, this._options)
@@ -84,5 +83,4 @@ export default class Uploader {
     removeAllFiles(cancelQueued) {
         this._uploader.removeAllFiles(cancelQueued)
     }
-
 }
