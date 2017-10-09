@@ -1,27 +1,34 @@
 'use strict'
 
 const UnminifiedWebpackPlugin = require('unminified-webpack-plugin')
+var path = require('path')
+
+function resolve (dir) {
+  return path.join(__dirname, dir)
+}
 
 module.exports = {
-  entry: './index.js',
+  entry: resolve('./index.js'),
   output: {
-    path: './dist',
+    path: resolve('./dist'),
     filename: 'vue-clip.min.js',
     libraryTarget: 'umd'
   },
   module: {
-    preLoaders: [
+    rules: [
+      // {
+      //   test: /\.(js|vue)$/,
+      //   loader: 'eslint-loader',
+      //   exclude: /node_modules/
+      // },
       {
-        test: /\.js$/,
-        loader: 'eslint',
-        exclude: /node_modules/
-      }
-    ],
-    loaders: [
+        test: /\.vue$/,
+        loader: 'vue-loader'
+      },
       {
         test: /\.js$/,
         exclude: /node_modules/,
-        loader: 'babel'
+        loader: 'babel-loader'
       }
     ]
   },

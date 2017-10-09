@@ -67,6 +67,7 @@ const dzEvents = {
 }
 
 export default {
+    name: 'vue-clip',
     props: {
         uploaderClass: {
             type: String
